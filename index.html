@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Geology Exam Flashcards</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="masthead">
+        <div class="strata" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="masthead-content">
+          <p class="eyebrow">Intro to Geology</p>
+          <h1>Exam Flashcards</h1>
+          <p class="summary">
+            Study the core terms, processes, and compare-and-contrast ideas from your notes.
+          </p>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Study controls">
+        <label class="search-field">
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="faults, magma, fossils..." />
+        </label>
+
+        <label class="select-field">
+          <span>Chapter</span>
+          <select id="chapterFilter"></select>
+        </label>
+
+        <div class="mode-tabs" role="tablist" aria-label="Study mode">
+          <button id="studyMode" class="active" type="button">Study</button>
+          <button id="quizMode" type="button">Quiz</button>
+        </div>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <div>
+          <strong id="cardCount">0</strong>
+          <span>cards in set</span>
+        </div>
+        <div>
+          <strong id="knownCount">0</strong>
+          <span>known</span>
+        </div>
+        <div>
+          <strong id="missedCount">0</strong>
+          <span>needs review</span>
+        </div>
+      </section>
+
+      <section class="study-panel" id="studyPanel">
+        <article class="flashcard" id="flashcard" tabindex="0" aria-live="polite">
+          <div class="card-face card-front">
+            <p id="cardChapter" class="card-chapter"></p>
+            <h2 id="cardQuestion"></h2>
+            <p class="tap-hint">Click or press Space to flip</p>
+          </div>
+          <div class="card-face card-back">
+            <p id="cardAnswer"></p>
+          </div>
+        </article>
+
+        <div class="card-actions">
+          <button id="prevCard" type="button">Previous</button>
+          <button id="shuffleCards" type="button">Shuffle</button>
+          <button id="markMissed" type="button">Needs Review</button>
+          <button id="markKnown" type="button">Known</button>
+          <button id="nextCard" type="button">Next</button>
+        </div>
+      </section>
+
+      <section class="quiz-panel hidden" id="quizPanel" aria-live="polite">
+        <div class="quiz-topline">
+          <p id="quizQuestion"></p>
+          <span id="quizProgress"></span>
+        </div>
+        <div id="quizOptions" class="quiz-options"></div>
+        <div id="quizResult" class="quiz-result"></div>
+        <button id="nextQuiz" type="button">Next Question</button>
+      </section>
+
+      <section class="deck-list" aria-label="Visible cards">
+        <div class="section-heading">
+          <h2>Deck</h2>
+          <button id="resetProgress" type="button">Reset Progress</button>
+        </div>
+        <div id="deckList" class="deck-grid"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
