@@ -40,6 +40,14 @@
           <button id="studyMode" class="active" type="button">Study</button>
           <button id="quizMode" type="button">Quiz</button>
         </div>
+
+        <div class="toggle-row" aria-label="Deck options">
+          <label class="toggle-control">
+            <input id="missedOnly" type="checkbox" />
+            <span>Missed only</span>
+          </label>
+          <button id="themeToggle" type="button" aria-pressed="false">Dark Mode</button>
+        </div>
       </section>
 
       <section class="status-row" aria-live="polite">
@@ -86,6 +94,28 @@
         <div id="quizOptions" class="quiz-options"></div>
         <div id="quizResult" class="quiz-result"></div>
         <button id="nextQuiz" type="button">Next Question</button>
+      </section>
+
+      <section class="history-panel" aria-label="Quiz score history">
+        <div class="section-heading">
+          <h2>Score History</h2>
+          <button id="clearHistory" type="button">Clear History</button>
+        </div>
+        <div class="history-summary">
+          <div>
+            <strong id="currentScore">0/0</strong>
+            <span>current quiz</span>
+          </div>
+          <div>
+            <strong id="bestScore">0%</strong>
+            <span>best score</span>
+          </div>
+          <div>
+            <strong id="quizCount">0</strong>
+            <span>saved attempts</span>
+          </div>
+        </div>
+        <div id="historyList" class="history-list"></div>
       </section>
 
       <section class="deck-list" aria-label="Visible cards">

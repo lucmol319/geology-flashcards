@@ -422,18 +422,24 @@ const cards = [
 ];
 
 const storageKey = "geology-flashcard-progress-v1";
+const historyKey = "geology-flashcard-history-v1";
+const themeKey = "geology-flashcard-theme-v1";
 let visibleCards = [...cards];
 let currentIndex = 0;
 let flipped = false;
 let mode = "study";
 let quizIndex = 0;
 let quizAnswered = false;
+let quizSession = { correct: 0, answered: 0 };
 
 const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
+const scoreHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
 const els = {
   searchInput: document.querySelector("#searchInput"),
   chapterFilter: document.querySelector("#chapterFilter"),
+  missedOnly: document.querySelector("#missedOnly"),
+  themeToggle: document.querySelector("#themeToggle"),
   studyMode: document.querySelector("#studyMode"),
   quizMode: document.querySelector("#quizMode"),
   cardCount: document.querySelector("#cardCount"),
@@ -455,6 +461,11 @@ const els = {
   quizOptions: document.querySelector("#quizOptions"),
   quizResult: document.querySelector("#quizResult"),
   nextQuiz: document.querySelector("#nextQuiz"),
+  currentScore: document.querySelector("#currentScore"),
+  bestScore: document.querySelector("#bestScore"),
+  quizCount: document.querySelector("#quizCount"),
+  historyList: document.querySelector("#historyList"),
+  clearHistory: document.querySelector("#clearHistory"),
   deckList: document.querySelector("#deckList"),
   resetProgress: document.querySelector("#resetProgress")
 };
@@ -465,6 +476,18 @@ function cardId(card) {
 
 function saveProgress() {
   localStorage.setItem(storageKey, JSON.stringify(progress));
+}
+
+function saveHistory() {
+  localStorage.setItem(historyKey, JSON.stringify(scoreHistory));
+}
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.body.classList.toggle("dark", isDark);
+  els.themeToggle.textContent = isDark ? "Light Mode" : "Dark Mode";
+  els.themeToggle.setAttribute("aria-pressed", String(isDark));
+  localStorage.setItem(themeKey, theme);
 }
 
 function setupChapters() {
@@ -480,17 +503,20 @@ function filterCards() {
   const chapter = els.chapterFilter.value;
   visibleCards = cards.filter((card) => {
     const matchesChapter = chapter === "all" || card.chapter === chapter;
+    const matchesReview = !els.missedOnly.checked || progress[cardId(card)] === "missed";
     const text = `${card.chapter} ${card.q} ${card.a}`.toLowerCase();
-    return matchesChapter && text.includes(search);
+    return matchesChapter && matchesReview && text.includes(search);
   });
   currentIndex = 0;
   quizIndex = 0;
+  quizSession = { correct: 0, answered: 0 };
   flipped = false;
   render();
 }
 
 function render() {
   renderStats();
+  renderHistory();
   renderStudyCard();
   renderDeckList();
   if (mode === "quiz") renderQuiz();
@@ -513,7 +539,9 @@ function renderStats() {
 function renderStudyCard() {
   if (!visibleCards.length) {
     els.cardChapter.textContent = "No matches";
-    els.cardQuestion.textContent = "Try a different search or chapter filter.";
+    els.cardQuestion.textContent = els.missedOnly.checked
+      ? "No missed cards match these filters yet."
+      : "Try a different search or chapter filter.";
     els.cardAnswer.textContent = "";
     els.flashcard.classList.remove("flipped");
     return;
@@ -532,8 +560,8 @@ function renderDeckList() {
       const status = progress[cardId(card)] || "";
       return `
         <button class="deck-item" type="button" data-index="${index}" data-status="${status}">
-          <strong>${card.chapter.replace("Chapter ", "Ch. ")}</strong>
-          <span>${card.q}</span>
+          <strong>${escapeHtml(card.chapter.replace("Chapter ", "Ch. "))}</strong>
+          <span>${escapeHtml(card.q)}</span>
         </button>
       `;
     })
@@ -541,6 +569,7 @@ function renderDeckList() {
 }
 
 function setMode(nextMode) {
+  if (mode === "quiz" && nextMode !== "quiz") saveCurrentQuizAttempt();
   mode = nextMode;
   els.studyMode.classList.toggle("active", mode === "study");
   els.quizMode.classList.toggle("active", mode === "quiz");
@@ -548,6 +577,7 @@ function setMode(nextMode) {
   els.quizPanel.classList.toggle("hidden", mode !== "quiz");
   quizIndex = 0;
   quizAnswered = false;
+  quizSession = { correct: 0, answered: 0 };
   render();
 }
 
@@ -562,6 +592,10 @@ function markCurrent(status) {
   if (!visibleCards.length) return;
   progress[cardId(visibleCards[currentIndex])] = status;
   saveProgress();
+  if (els.missedOnly.checked && status === "known") {
+    filterCards();
+    return;
+  }
   render();
 }
 
@@ -591,7 +625,10 @@ function renderQuiz() {
   els.quizProgress.textContent = `${(quizIndex % visibleCards.length) + 1} of ${visibleCards.length}`;
   els.quizResult.textContent = "";
   els.quizOptions.innerHTML = answers
-    .map((answer) => `<button type="button" data-answer="${escapeAttribute(answer)}">${answer}</button>`)
+    .map(
+      (answer) =>
+        `<button type="button" data-answer="${escapeAttribute(answer)}">${escapeHtml(answer)}</button>`
+    )
     .join("");
 }
 
@@ -618,6 +655,15 @@ function escapeAttribute(value) {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 }
 
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function handleQuizAnswer(event) {
   const button = event.target.closest("button");
   if (!button || quizAnswered || !visibleCards.length) return;
@@ -628,6 +674,8 @@ function handleQuizAnswer(event) {
   const isCorrect = selected === card.a;
   button.classList.add(isCorrect ? "correct" : "wrong");
   progress[cardId(card)] = isCorrect ? "known" : "missed";
+  quizSession.answered += 1;
+  if (isCorrect) quizSession.correct += 1;
 
   for (const option of els.quizOptions.querySelectorAll("button")) {
     option.disabled = true;
@@ -640,6 +688,63 @@ function handleQuizAnswer(event) {
   saveProgress();
   renderStats();
   renderDeckList();
+  renderHistory();
+}
+
+function saveCurrentQuizAttempt() {
+  if (!quizSession.answered) return;
+  scoreHistory.unshift({
+    correct: quizSession.correct,
+    answered: quizSession.answered,
+    total: visibleCards.length,
+    date: new Date().toISOString()
+  });
+  scoreHistory.splice(8);
+  saveHistory();
+  quizSession = { correct: 0, answered: 0 };
+}
+
+function renderHistory() {
+  els.currentScore.textContent = `${quizSession.correct}/${quizSession.answered}`;
+  els.quizCount.textContent = scoreHistory.length;
+
+  const best = scoreHistory.reduce((highest, attempt) => {
+    const percent = attempt.answered ? Math.round((attempt.correct / attempt.answered) * 100) : 0;
+    return Math.max(highest, percent);
+  }, 0);
+  els.bestScore.textContent = `${best}%`;
+
+  if (!scoreHistory.length) {
+    els.historyList.innerHTML = `<div class="history-empty">No saved quiz attempts yet.</div>`;
+    return;
+  }
+
+  els.historyList.innerHTML = scoreHistory
+    .map((attempt) => {
+      const percent = attempt.answered ? Math.round((attempt.correct / attempt.answered) * 100) : 0;
+      const date = new Date(attempt.date).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+      return `
+        <div class="history-item">
+          <span><strong>${percent}%</strong> ${attempt.correct}/${attempt.answered} correct</span>
+          <span>${date}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function isTypingTarget(target) {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
 }
 
 els.flashcard.addEventListener("click", () => {
@@ -648,7 +753,7 @@ els.flashcard.addEventListener("click", () => {
 });
 
 els.flashcard.addEventListener("keydown", (event) => {
-  if (event.key === " " || event.key === "Enter") {
+  if (event.key === "Enter") {
     event.preventDefault();
     flipped = !flipped;
     renderStudyCard();
@@ -656,10 +761,22 @@ els.flashcard.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (mode !== "study") return;
+  if (mode !== "study" || isTypingTarget(event.target)) return;
+  if (event.key === " ") {
+    event.preventDefault();
+    event.stopPropagation();
+    flipped = !flipped;
+    renderStudyCard();
+  }
   if (event.key === "ArrowLeft") moveCard(-1);
   if (event.key === "ArrowRight") moveCard(1);
-});
+}, true);
+
+document.addEventListener("keyup", (event) => {
+  if (mode !== "study" || event.key !== " " || isTypingTarget(event.target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
 
 els.prevCard.addEventListener("click", () => moveCard(-1));
 els.nextCard.addEventListener("click", () => moveCard(1));
@@ -668,17 +785,31 @@ els.markKnown.addEventListener("click", () => markCurrent("known"));
 els.markMissed.addEventListener("click", () => markCurrent("missed"));
 els.searchInput.addEventListener("input", filterCards);
 els.chapterFilter.addEventListener("change", filterCards);
+els.missedOnly.addEventListener("change", filterCards);
+els.themeToggle.addEventListener("click", () => {
+  applyTheme(document.body.classList.contains("dark") ? "light" : "dark");
+});
 els.studyMode.addEventListener("click", () => setMode("study"));
 els.quizMode.addEventListener("click", () => setMode("quiz"));
 els.quizOptions.addEventListener("click", handleQuizAnswer);
 els.nextQuiz.addEventListener("click", () => {
+  if (visibleCards.length && quizIndex + 1 >= visibleCards.length) {
+    saveCurrentQuizAttempt();
+  }
   quizIndex = (quizIndex + 1) % Math.max(visibleCards.length, 1);
   renderQuiz();
+  renderHistory();
 });
 els.resetProgress.addEventListener("click", () => {
   for (const key of Object.keys(progress)) delete progress[key];
   saveProgress();
-  render();
+  filterCards();
+});
+els.clearHistory.addEventListener("click", () => {
+  scoreHistory.splice(0);
+  saveHistory();
+  quizSession = { correct: 0, answered: 0 };
+  renderHistory();
 });
 els.deckList.addEventListener("click", (event) => {
   const item = event.target.closest(".deck-item");
@@ -689,5 +820,6 @@ els.deckList.addEventListener("click", (event) => {
   els.flashcard.focus();
 });
 
+applyTheme(localStorage.getItem(themeKey) || "light");
 setupChapters();
 render();
